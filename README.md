@@ -66,10 +66,35 @@ github release、archive以及项目文件的加速项目，支持clone，有Clo
 docker run -d --name="gh-proxy-py" \
   -p 0.0.0.0:80:80 \
   --restart=always \
-  hunsh/gh-proxy-py:latest
+  your-dockerhub-user/gh-proxy:latest
 ```
 
-第一个80是你要暴露出去的端口
+第一个80是你要暴露出去的端口。
+
+镜像也可以通过 GitHub Actions 自动构建：向 `master` 推送代码会自动发布，或者在 Actions 页面手动运行并填写可选版本号。需要在仓库 Secrets 中配置：
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_PASSWORD`
+
+工作流会推送 `latest`、`sha-<commit>` 和手动填写的版本标签到 Docker Hub。
+
+自用部署时可以按需调整以下环境变量；默认值用于限制单个客户端的请求速率、并发数、请求体大小和上游超时：
+
+```bash
+docker run -d --name="gh-proxy-py" \
+  -p 0.0.0.0:80:80 \
+  -e GH_PROXY_RATE=10 \
+  -e GH_PROXY_RATE_BURST=20 \
+  -e GH_PROXY_MAX_CONNECTIONS=20 \
+  -e GH_PROXY_MAX_BODY_SIZE=50g \
+  -e GH_PROXY_CONNECT_TIMEOUT=10 \
+  -e GH_PROXY_READ_TIMEOUT=60 \
+  -e GH_PROXY_SEND_TIMEOUT=60 \
+  --restart=always \
+  your-dockerhub-user/gh-proxy:latest
+```
+
+`GH_PROXY_SIZE_LIMIT` 控制 Python 转发层的响应大小上限，默认 `50GB`；`GH_PROXY_MAX_BODY_SIZE` 控制 Nginx 请求体大小，默认 `50g`。Dockerfile 使用同一镜像系列中已验证存在的 `python3.8` 标签；该版本仅用于兼容现有 uWSGI/Nginx 启动链路，生产环境仍建议后续迁移到持续维护的基础镜像。
 
 ### 直接部署
 

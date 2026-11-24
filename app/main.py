@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import re
 
 import requests
@@ -15,7 +16,11 @@ from urllib.parse import quote
 # config
 # 分支文件使用jsDelivr镜像的开关，0为关闭，默认关闭
 jsdelivr = 0
-size_limit = 1024 * 1024 * 1024 * 999  # 允许的文件大小，默认999GB，相当于无限制了 https://github.com/hunshcn/gh-proxy/issues/8
+size_limit = int(os.getenv('GH_PROXY_SIZE_LIMIT', str(50 * 1024 * 1024 * 1024)))
+request_timeout = (
+    float(os.getenv('GH_PROXY_CONNECT_TIMEOUT', '10')),
+    float(os.getenv('GH_PROXY_READ_TIMEOUT', '60')),
+)
 
 """
   先生效白名单再匹配黑名单，pass_list匹配到的会直接302到jsdelivr而忽略设置
@@ -168,7 +173,15 @@ def proxy(u, allow_redirects=False):
         url = u + request.url.replace(request.base_url, '', 1)
         if url.startswith('https:/') and not url.startswith('https://'):
             url = 'https://' + url[7:]
-        r = requests.request(method=request.method, url=url, data=request.data, headers=r_headers, stream=True, allow_redirects=allow_redirects)
+        r = requests.request(
+            method=request.method,
+            url=url,
+            data=request.data,
+            headers=r_headers,
+            stream=True,
+            allow_redirects=allow_redirects,
+            timeout=request_timeout,
+        )
         headers = dict(r.headers)
 
         if 'Content-length' in r.headers and int(r.headers['Content-length']) > size_limit:
