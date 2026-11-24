@@ -11,7 +11,7 @@ from requests.utils import (
     stream_decode_response_unicode, iter_slices, CaseInsensitiveDict)
 from urllib3.exceptions import (
     DecodeError, ReadTimeoutError, ProtocolError)
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit, urlunsplit
 
 # config
 # 分支文件使用jsDelivr镜像的开关，0为关闭，默认关闭
@@ -54,6 +54,11 @@ exp3 = re.compile(r'^(?:https?://)?github\.com/(?P<author>.+?)/(?P<repo>.+?)/(?:
 exp4 = re.compile(r'^(?:https?://)?raw\.(?:githubusercontent|github)\.com/(?P<author>.+?)/(?P<repo>.+?)/.+?/.+$')
 exp5 = re.compile(r'^(?:https?://)?gist\.(?:githubusercontent|github)\.com/(?P<author>.+?)/.+?/.+$')
 exp6 = re.compile(r'^(?:https?://)?github\.com(?:/(?P<author>[^/?#]+)(?:/(?P<repo>[^/?#]+))?)?(?:[/?#].*)?$')
+exp_codeload = re.compile(
+    r'^(?:https?://)?codeload\.github\.com/'
+    r'(?P<author>[^/?#]+)/(?P<repo>[^/?#]+)/[^?#]+(?:[?#].*)?$')
+
+
 
 requests.sessions.default_headers = lambda: CaseInsensitiveDict()
 
@@ -113,11 +118,47 @@ def iter_content(self, chunk_size=1, decode_unicode=False):
 
 
 def check_url(u):
-    for exp in (exp1, exp2, exp3, exp4, exp5, exp6):
+    for exp in (exp1, exp2, exp3, exp4, exp5, exp6, exp_codeload):
         m = exp.match(u)
         if m:
             return m
     return False
+
+
+def normalize_github_file_url(u):
+    """将 GitHub 文件页面转换为 Raw 地址，避免暴露跨主机跳转。"""
+    try:
+        parsed = urlsplit(u)
+        if (
+            parsed.scheme.lower() not in ('http', 'https')
+            or parsed.hostname.lower() != 'github.com'
+            or parsed.username
+            or parsed.password
+            or parsed.port is not None
+        ):
+            return None
+    except (AttributeError, ValueError):
+        return None
+
+    parts = parsed.path.split('/')
+    if (
+        len(parts) < 6
+        or not parts[1]
+        or not parts[2]
+        or parts[3] not in ('blob', 'raw')
+        or not parts[4]
+        or not parts[5]
+    ):
+        return None
+
+    raw_path = '/' + '/'.join((parts[1], parts[2], *parts[4:]))
+    return urlunsplit((
+        'https',
+        'raw.githubusercontent.com',
+        raw_path,
+        parsed.query,
+        parsed.fragment,
+    ))
 
 
 @app.route('/<path:u>', methods=['GET', 'POST'])
@@ -155,7 +196,9 @@ def handler(u):
         return redirect(u)
     else:
         if exp2.match(u):
-            u = u.replace('/blob/', '/raw/', 1)
+            normalized_url = normalize_github_file_url(u)
+            if normalized_url:
+                u = normalized_url
         if pass_by:
             url = u + request.url.replace(request.base_url, '', 1)
             if url.startswith('https:/') and not url.startswith('https://'):

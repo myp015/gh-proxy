@@ -21,6 +21,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Run static checks
+        run: |
+          set -eu
+          bash -n entrypoint.sh
+          docker build --tag gh-proxy:test .
+          docker run --rm -v "$PWD:/src" -w /src gh-proxy:test \
+            python3 -m unittest discover -s tests -v
+
+      - name: Test trusted proxy configuration
+        run: |
+          set -eu
+          docker run --rm gh-proxy:test nginx -T 2>&1 \
+            | grep -q 'map \$http_x_real_ip \$gh_proxy_client_ip'
+          docker run --rm \
+            -e GH_PROXY_TRUSTED_PROXIES='127.0.0.1,10.0.0.0/8,2001:db8::/32' \
+            gh-proxy:test nginx -T 2>&1 | grep -q 'set_real_ip_from 10.0.0.0/8;'
+          if docker run --rm -e GH_PROXY_TRUSTED_PROXIES='127.0.0.1,,10.0.0.0/8' gh-proxy:test true; then
+            echo '空的可信代理配置项未被拒绝' >&2
+            exit 1
+          fi
+          if docker run --rm -e GH_PROXY_TRUSTED_PROXIES='0.0.0.0/0' gh-proxy:test true; then
+            echo '全网段可信代理配置未被拒绝' >&2
+            exit 1
+          fi
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 
