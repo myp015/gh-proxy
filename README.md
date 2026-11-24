@@ -65,9 +65,7 @@ https://example.com/gh/https://github.com/user/repo/archive/main.zip
 ```yaml
 services:
   gh-proxy:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: myp015/gh-proxy:latest
     ports:
       - "80:80"
     restart: always
@@ -86,7 +84,7 @@ services:
 启动服务：
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 配置说明：
@@ -97,13 +95,7 @@ docker compose up -d --build
 - `GH_PROXY_MAX_CONNECTIONS`：单个客户端 IP 的最大并发连接数。
 - `GH_PROXY_CONNECT_TIMEOUT`、`GH_PROXY_READ_TIMEOUT`、`GH_PROXY_SEND_TIMEOUT`：上游连接、读取和发送超时，单位为秒。
 
-如果使用 GitHub Actions 推送的镜像，可以将 Compose 中的 `build` 替换为：
-
-```yaml
-image: myp015/gh-proxy:latest
-```
-
-当前 Docker 镜像基于 `guysoft/uwsgi-nginx:python3.8`，服务监听容器内的 80 端口。
+Compose 直接使用 GitHub Actions 推送的 `myp015/gh-proxy:latest` 镜像，服务监听容器内的 80 端口。镜像基于 `guysoft/uwsgi-nginx:python3.8`。
 
 ## Docker Hub 自动构建
 
