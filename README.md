@@ -100,10 +100,10 @@ docker compose up -d --build
 如果使用 GitHub Actions 推送的镜像，可以将 Compose 中的 `build` 替换为：
 
 ```yaml
-image: your-dockerhub-user/gh-proxy:latest
+image: myp015/gh-proxy:latest
 ```
 
-并将 `your-dockerhub-user` 替换为实际的 Docker Hub 用户名。当前 Docker 镜像基于 `guysoft/uwsgi-nginx:python3.8`，服务监听容器内的 80 端口。
+当前 Docker 镜像基于 `guysoft/uwsgi-nginx:python3.8`，服务监听容器内的 80 端口。
 
 ## Docker Hub 自动构建
 
@@ -122,7 +122,7 @@ image: your-dockerhub-user/gh-proxy:latest
 docker run -d --name gh-proxy-py \
   -p 80:80 \
   --restart=always \
-  your-dockerhub-user/gh-proxy:latest
+  myp015/gh-proxy:latest
 ```
 
-将 `your-dockerhub-user` 替换为实际的 Docker Hub 用户名。大规模使用时建议自行部署，并根据带宽和服务器资源调整上述限制参数。
+大规模使用时建议自行部署，并根据带宽和服务器资源调整上述限制参数。
