@@ -1,143 +1,128 @@
 # gh-proxy
 
-## 简介
+GitHub Release、Archive、项目文件和 Git Clone 加速代理，提供 Cloudflare Workers 和 Python/Docker 两种部署方式。
 
-github release、archive以及项目文件的加速项目，支持clone，有Cloudflare Workers无服务器版本以及Python版本
+## 使用方式
 
-## 演示
+将代理域名加在原始 GitHub URL 前面：
 
-[https://gh.api.99988866.xyz/](https://gh.api.99988866.xyz/)
-
-演示站为公共服务，如有大规模使用需求请自行部署，演示站有点不堪重负
-
-![imagea272c95887343279.png](https://img.maocdn.cn/img/2021/04/24/imagea272c95887343279.png)
-
-当然也欢迎[捐赠](#捐赠)以支持作者
-
-## python版本和cf worker版本差异
-
-- python版本支持进行文件大小限制，超过设定返回原地址 [issue #8](https://github.com/hunshcn/gh-proxy/issues/8)
-
-- python版本支持特定user/repo 封禁/白名单 以及passby [issue #41](https://github.com/hunshcn/gh-proxy/issues/41)
-
-## 使用
-
-直接在copy出来的url前加`https://gh.api.99988866.xyz/`即可
-
-也可以直接访问，在input输入
-
-***大量使用请自行部署，以上域名仅为演示使用。***
-
-访问私有仓库可以通过
-
-`git clone https://user:TOKEN@ghproxy.com/https://github.com/xxxx/xxxx` [#71](https://github.com/hunshcn/gh-proxy/issues/71)
-
-以下都是合法输入（仅示例，文件不存在）：
-
-- 分支源码：https://github.com/hunshcn/project/archive/master.zip
-
-- release源码：https://github.com/hunshcn/project/archive/v0.1.0.tar.gz
-
-- release文件：https://github.com/hunshcn/project/releases/download/v0.1.0/example.zip
-
-- 分支文件：https://github.com/hunshcn/project/blob/master/filename
-
-- commit文件：https://github.com/hunshcn/project/blob/1111111111111111111111111111/filename
-
-- gist：https://gist.githubusercontent.com/cielpy/351557e6e465c12986419ac5a4dd2568/raw/cmd.py
-
-## cf worker版本部署
-
-首页：https://workers.cloudflare.com
-
-注册，登陆，`Start building`，取一个子域名，`Create a Worker`。
-
-复制 [index.js](https://cdn.jsdelivr.net/gh/hunshcn/gh-proxy@master/index.js)  到左侧代码框，`Save and deploy`。如果正常，右侧应显示首页。
-
-`ASSET_URL`是静态资源的url（实际上就是现在显示出来的那个输入框单页面）
-
-`PREFIX`是前缀，默认（根路径情况为"/"），如果自定义路由为example.com/gh/*，请将PREFIX改为 '/gh/'，注意，少一个杠都会错！
-
-## Python版本部署
-
-### Docker部署
-
-```
-docker run -d --name="gh-proxy-py" \
-  -p 0.0.0.0:80:80 \
-  --restart=always \
-  your-dockerhub-user/gh-proxy:latest
+```text
+https://你的代理域名/https://github.com/用户/仓库/路径
 ```
 
-第一个80是你要暴露出去的端口。
+示例：
 
-镜像也可以通过 GitHub Actions 自动构建：向 `master` 推送代码会自动发布，或者在 Actions 页面手动运行并填写可选版本号。需要在仓库 Secrets 中配置：
+```text
+https://proxy.example.com/https://github.com/user/repo/archive/main.zip
+https://proxy.example.com/https://github.com/user/repo/releases/download/v1.0.0/app.zip
+https://proxy.example.com/https://raw.githubusercontent.com/user/repo/main/file.txt
+```
+
+Git Clone：
+
+```bash
+git clone https://proxy.example.com/https://github.com/user/repo.git
+```
+
+支持的目标类型包括：
+
+- GitHub Release 和 Archive
+- GitHub `blob`/`raw` 文件
+- `raw.githubusercontent.com` 文件
+- Gist
+- Git Clone 所需的 `info/refs` 和 `git-upload-pack` 请求
+
+项目不是通用网站代理，只处理代码中允许的 GitHub/Gist URL 类型。
+
+## Cloudflare Workers 部署
+
+1. 在 [Cloudflare Workers](https://workers.cloudflare.com/) 创建 Worker。
+2. 将 [`index.js`](./index.js) 的内容复制到 Worker 编辑器并部署。
+3. 根路径部署保持：
+
+   ```javascript
+   const PREFIX = '/'
+   ```
+
+   如果路由为 `example.com/gh/*`，改为：
+
+   ```javascript
+   const PREFIX = '/gh/'
+   ```
+
+部署在 `/gh/` 后的使用方式：
+
+```text
+https://example.com/gh/https://github.com/user/repo/archive/main.zip
+```
+
+`ASSET_URL` 用于指定首页静态资源地址。
+
+## Docker Compose 部署
+
+在项目根目录创建 `docker-compose.yml`：
+
+```yaml
+services:
+  gh-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    restart: always
+    environment:
+      LISTEN_PORT: "80"
+      GH_PROXY_SIZE_LIMIT: "53687091200"
+      GH_PROXY_RATE: "10"
+      GH_PROXY_RATE_BURST: "20"
+      GH_PROXY_MAX_CONNECTIONS: "20"
+      GH_PROXY_MAX_BODY_SIZE: "50g"
+      GH_PROXY_CONNECT_TIMEOUT: "10"
+      GH_PROXY_READ_TIMEOUT: "60"
+      GH_PROXY_SEND_TIMEOUT: "60"
+```
+
+启动服务：
+
+```bash
+docker compose up -d --build
+```
+
+配置说明：
+
+- `GH_PROXY_SIZE_LIMIT`：Python 转发层响应大小上限，示例为 50GB。
+- `GH_PROXY_MAX_BODY_SIZE`：Nginx 请求体大小上限，示例为 50GB。
+- `GH_PROXY_RATE`、`GH_PROXY_RATE_BURST`：单个客户端 IP 的请求速率和突发请求数。
+- `GH_PROXY_MAX_CONNECTIONS`：单个客户端 IP 的最大并发连接数。
+- `GH_PROXY_CONNECT_TIMEOUT`、`GH_PROXY_READ_TIMEOUT`、`GH_PROXY_SEND_TIMEOUT`：上游连接、读取和发送超时，单位为秒。
+
+如果使用 GitHub Actions 推送的镜像，可以将 Compose 中的 `build` 替换为：
+
+```yaml
+image: your-dockerhub-user/gh-proxy:latest
+```
+
+并将 `your-dockerhub-user` 替换为实际的 Docker Hub 用户名。当前 Docker 镜像基于 `guysoft/uwsgi-nginx:python3.8`，服务监听容器内的 80 端口。
+
+## Docker Hub 自动构建
+
+`.github/workflows/docker.yml` 会在推送到 `master` 时自动构建并推送镜像，也可以在 GitHub Actions 页面手动运行。
+
+需要在仓库 Secrets 中配置：
 
 - `DOCKERHUB_USERNAME`
 - `DOCKERHUB_PASSWORD`
 
-工作流会推送 `latest`、`sha-<commit>` 和手动填写的版本标签到 Docker Hub。
+工作流会推送 `latest`、`sha-<commit>` 以及手动填写的版本标签。
 
-自用部署时可以按需调整以下环境变量；默认值用于限制单个客户端的请求速率、并发数、请求体大小和上游超时：
+## 直接运行 Docker
 
 ```bash
-docker run -d --name="gh-proxy-py" \
-  -p 0.0.0.0:80:80 \
-  -e GH_PROXY_RATE=10 \
-  -e GH_PROXY_RATE_BURST=20 \
-  -e GH_PROXY_MAX_CONNECTIONS=20 \
-  -e GH_PROXY_MAX_BODY_SIZE=50g \
-  -e GH_PROXY_CONNECT_TIMEOUT=10 \
-  -e GH_PROXY_READ_TIMEOUT=60 \
-  -e GH_PROXY_SEND_TIMEOUT=60 \
+docker run -d --name gh-proxy-py \
+  -p 80:80 \
   --restart=always \
   your-dockerhub-user/gh-proxy:latest
 ```
 
-`GH_PROXY_SIZE_LIMIT` 控制 Python 转发层的响应大小上限，默认 `50GB`；`GH_PROXY_MAX_BODY_SIZE` 控制 Nginx 请求体大小，默认 `50g`。Dockerfile 使用同一镜像系列中已验证存在的 `python3.8` 标签；该版本仅用于兼容现有 uWSGI/Nginx 启动链路，生产环境仍建议后续迁移到持续维护的基础镜像。
-
-### 直接部署
-
-安装依赖（请使用python3）
-
-```pip install flask requests```
-
-按需求修改`app/main.py`的前几项配置
-
-*注意:* 可能需要在`return Response`前加两行
-```python3
-if 'Transfer-Encoding' in headers:
-    headers.pop('Transfer-Encoding')
-```
-
-### 注意
-
-python版本的机器如果无法正常访问github.io会启动报错，请自行修改静态文件url
-
-python版本默认走服务器（2021.3.27更新）
-
-## Cloudflare Workers计费
-
-到 `overview` 页面可参看使用情况。免费版每天有 10 万次免费请求，并且有每分钟1000次请求的限制。
-
-如果不够用，可升级到 $5 的高级版本，每月可用 1000 万次请求（超出部分 $0.5/百万次请求）。
-
-## Changelog
-
-* 2020.04.10 增加对`raw.githubusercontent.com`文件的支持
-* 2020.04.09 增加Python版本（使用Flask）
-* 2020.03.23 新增了clone的支持
-* 2020.03.22 初始版本
-
-## 链接
-
-[我的博客](https://hunsh.net)
-
-## 参考
-
-[jsproxy](https://github.com/EtherDream/jsproxy/)
-
-## 捐赠
-
-![wx.png](https://img.maocdn.cn/img/2021/04/24/image.md.png)
-![ali.png](https://www.helloimg.com/images/2021/04/24/BK9vmb.md.png)
+将 `your-dockerhub-user` 替换为实际的 Docker Hub 用户名。大规模使用时建议自行部署，并根据带宽和服务器资源调整上述限制参数。
