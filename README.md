@@ -115,7 +115,7 @@ Compose 直接使用 GitHub Actions 推送的 `myp015/gh-proxy:latest` 镜像，
 
 ```bash
 docker run -d --name gh-proxy \
-  -p 80:80 \
+  -p 8090:80 \
   --restart=always \
   myp015/gh-proxy:latest
 ```
