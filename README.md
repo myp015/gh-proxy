@@ -63,6 +63,8 @@ https://example.com/gh/https://github.com/user/repo/archive/main.zip
 在项目根目录创建 `docker-compose.yml`：
 
 ```yaml
+name: gh-proxy
+
 services:
   gh-proxy:
     image: myp015/gh-proxy:latest
@@ -111,7 +113,7 @@ Compose 直接使用 GitHub Actions 推送的 `myp015/gh-proxy:latest` 镜像，
 ## 直接运行 Docker
 
 ```bash
-docker run -d --name gh-proxy-py \
+docker run -d --name gh-proxy \
   -p 80:80 \
   --restart=always \
   myp015/gh-proxy:latest
