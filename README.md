@@ -67,9 +67,10 @@ name: gh-proxy
 
 services:
   gh-proxy:
+    container_name: gh-proxy
     image: myp015/gh-proxy:latest
     ports:
-      - "80:80"
+      - "8090:80"
     restart: always
     environment:
       LISTEN_PORT: "80"
