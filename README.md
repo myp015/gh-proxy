@@ -13,6 +13,8 @@ https://你的代理域名/https://github.com/用户/仓库/路径
 示例：
 
 ```text
+https://proxy.example.com/https://github.com
+https://proxy.example.com/https://github.com/user/repo
 https://proxy.example.com/https://github.com/user/repo/archive/main.zip
 https://proxy.example.com/https://github.com/user/repo/releases/download/v1.0.0/app.zip
 https://proxy.example.com/https://raw.githubusercontent.com/user/repo/main/file.txt
@@ -27,6 +29,7 @@ git clone https://proxy.example.com/https://github.com/user/repo.git
 支持的目标类型包括：
 
 - GitHub Release 和 Archive
+- GitHub 首页、仓库首页和其他 Web 页面
 - GitHub `blob`/`raw` 文件
 - `raw.githubusercontent.com` 文件
 - Gist
